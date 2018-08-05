@@ -78,5 +78,3 @@ plot_confusion_matrix(cm=confusion_matrix(test_actual_labels, test_pred_labels),
 
 plot_confusion_matrix(cm=confusion_matrix(test_actual_labels, test_pred_labels), normalize = True,
                         target_names = class_names, title='Confusion matrix, with normalization')
-
-

@@ -40,7 +40,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private SciChartSurface mGyrsChartSurface;
     private SciChartSurface mAccChartSurface;
 
-    int mCapacitySize = 100;
+    int mCapacitySize = 70;
 
     private LinearLayout mChartLayout;
     // Obtain the SciChartBuilder instance

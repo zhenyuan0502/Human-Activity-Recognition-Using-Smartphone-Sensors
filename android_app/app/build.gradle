@@ -36,4 +36,7 @@ dependencies {
     implementation (group: 'com.scichart.library', name: 'drawing', version: '2.0.0.1654', ext: 'aar')
     implementation (group: 'com.scichart.library', name: 'charting', version: '2.0.0.1654', ext: 'aar')
     implementation (group: 'com.scichart.library', name: 'extensions',version: '2.0.0.1654', ext: 'aar')
+
+    // Tensorflow
+    implementation 'org.tensorflow:tensorflow-android:1.9.0'
 }
