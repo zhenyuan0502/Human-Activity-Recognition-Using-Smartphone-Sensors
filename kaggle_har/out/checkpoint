@@ -1,0 +1,2 @@
+model_checkpoint_path: "ANN_TF_Model.chkp"
+all_model_checkpoint_paths: "ANN_TF_Model.chkp"
