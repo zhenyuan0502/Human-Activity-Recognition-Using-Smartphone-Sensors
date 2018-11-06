@@ -44,12 +44,13 @@ import uk.me.berndporr.iirj.Butterworth;
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
     private SensorManager mSensorManager;
-    private Sensor mAccelerometer;
+    private Sensor mLineAccelerometer;
     private Sensor mGyroscope;
+    private Sensor mGravity;
 
     private Toolbar mToolbar;
     private SciChartSurface mGyrsChartSurface;
-    private SciChartSurface mAccChartSurface;
+    private SciChartSurface mLineAccChartSurface;
 
     int mCapacitySize = 200;
 
@@ -60,12 +61,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private XyDataSeries mAccLineXData, mAccLineYData, mAccLineZData;
 
     // remember to change this (128 - 200)
-    private static final int N_SAMPLES = 200;
-    private static List<Float> accX, accY, accZ, gyrsX, gyrsY, gyrsZ;
+    // 200 official
+    private static final int N_SAMPLES = 128;
+    // 128 test
+
+    private static List<Float> mLineAccX, mLineAccY, mLineAccZ, mGyrsX, mGyrsY, mGyrsZ, mGravityX, mGravityY, mGravityZ;
     private TextView mTimeTextView, mHealthInfo;
-    private Long mLastAccTimer = 0L;
-    private Long mLastGyroTimer = 0L;
-    private Long mStartTime = 0L;
+    private Long mLastLineAccTimer = 0L;
+    private Long mLastGyrsTimer = 0L;
+    private Long mLastGravityTimer = 0L;
+
+    private Long mStartLineAccTime = 0L;
+    private Long mStartGyrsTime = 0L;
+    private Long mStartGravityTime = 0L;
+
 
     private String[] labels = {"Downstairs", "Upstairs", "Walking", "Sitting", "Laying", "Standing"};
     //    private String[] mLabels = {"WAKING", "WALKING_UPSTAIRS", "WALKING_DOWNSTAIRS", "SITTING", "STANDING", "LAYING"};
@@ -96,13 +105,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private void initDataViews() {
-        accX = new ArrayList<>();
-        accY = new ArrayList<>();
-        accZ = new ArrayList<>();
+        mLineAccX = new ArrayList<>();
+        mLineAccY = new ArrayList<>();
+        mLineAccZ = new ArrayList<>();
 
-        gyrsX = new ArrayList<>();
-        gyrsY = new ArrayList<>();
-        gyrsZ = new ArrayList<>();
+        mGyrsX = new ArrayList<>();
+        mGyrsY = new ArrayList<>();
+        mGyrsZ = new ArrayList<>();
+
+        mGravityX = new ArrayList<>();
+        mGravityY = new ArrayList<>();
+        mGravityZ = new ArrayList<>();
 
         mClassifier = new TensorFlowClassifier(getApplicationContext());
 
@@ -163,15 +176,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
 
         mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
+        mLineAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
         mGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+//        mGravity = mSensorManager.getDefaultSensor(Sensor.TYPE_GRAVITY);
 
         mChartLayout = findViewById(R.id.chart);
         mGyrsChartSurface = new SciChartSurface(this);
-        mAccChartSurface = new SciChartSurface(this);
+        mLineAccChartSurface = new SciChartSurface(this);
 
         mChartLayout.addView(mGyrsChartSurface);
-        mChartLayout.addView(mAccChartSurface);
+        mChartLayout.addView(mLineAccChartSurface);
 
         SciChartBuilder.init(this);
 
@@ -179,7 +194,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         LinearLayout.LayoutParams layoutParams = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.MATCH_PARENT, 1.0f);
 
         mGyrsChartSurface.setLayoutParams(layoutParams);
-        mAccChartSurface.setLayoutParams(layoutParams);
+        mLineAccChartSurface.setLayoutParams(layoutParams);
 
         mChartBuilder = SciChartBuilder.instance();
 
@@ -187,9 +202,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         Collections.addAll(mGyrsChartSurface.getYAxes(), createAxis(false, "Gyroscope", 10));
         Collections.addAll(mGyrsChartSurface.getXAxes(), createAxis(true, "Gyroscope", 0));
         Collections.addAll(mGyrsChartSurface.getChartModifiers(), buildModifier());
-        Collections.addAll(mAccChartSurface.getYAxes(), createAxis(false, "Linear Accelerometer", 20));
-        Collections.addAll(mAccChartSurface.getXAxes(), createAxis(true, "Linear Accelerometer", 0));
-        Collections.addAll(mAccChartSurface.getChartModifiers(), buildModifier());
+        Collections.addAll(mLineAccChartSurface.getYAxes(), createAxis(false, "Linear Accelerometer", 20));
+        Collections.addAll(mLineAccChartSurface.getXAxes(), createAxis(true, "Linear Accelerometer", 0));
+        Collections.addAll(mLineAccChartSurface.getChartModifiers(), buildModifier());
 
         mGyrsLineXData = buildDataSeries("X Gyroscope");
         mGyrsLineYData = buildDataSeries("Y Gyroscope");
@@ -203,9 +218,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         mGyrsChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.Yellow, mGyrsLineYData));
         mGyrsChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.Red, mGyrsLineZData));
 
-        mAccChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.LightBlue, mAccLineXData));
-        mAccChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.Yellow, mAccLineYData));
-        mAccChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.Red, mAccLineZData));
+        mLineAccChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.LightBlue, mAccLineXData));
+        mLineAccChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.Yellow, mAccLineYData));
+        mLineAccChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.Red, mAccLineZData));
 
         mActWalking = findViewById(R.id.walking_prob);
         mActUpstairs = findViewById(R.id.walking_upstairs_prob);
@@ -265,9 +280,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private static int MEDIAN_FILTER_SIZE = 5;
-    private ArrayList<Double> arrFilterAccX = new ArrayList<Double>();
-    private ArrayList<Double> arrFilterAccY = new ArrayList<Double>();
-    private ArrayList<Double> arrFilterAccZ = new ArrayList<Double>();
+    private ArrayList<Double> arrFilterLineAccX = new ArrayList<Double>();
+    private ArrayList<Double> arrFilterLineAccY = new ArrayList<Double>();
+    private ArrayList<Double> arrFilterLineAccZ = new ArrayList<Double>();
+    private ArrayList<Double> arrFilterGravityX = new ArrayList<Double>();
+    private ArrayList<Double> arrFilterGravityY = new ArrayList<Double>();
+    private ArrayList<Double> arrFilterGravityZ = new ArrayList<Double>();
     private ArrayList<Double> arrFilterGyrsX = new ArrayList<Double>();
     private ArrayList<Double> arrFilterGyrsY = new ArrayList<Double>();
     private ArrayList<Double> arrFilterGyrsZ = new ArrayList<Double>();
@@ -289,27 +307,27 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
             if (isShowMedianFilter) {
-                arrFilterAccX.add(x);
-                arrFilterAccY.add(y);
-                arrFilterAccZ.add(z);
+                arrFilterLineAccX.add(x);
+                arrFilterLineAccY.add(y);
+                arrFilterLineAccZ.add(z);
 
-                if (arrFilterAccX.size() == MEDIAN_FILTER_SIZE) {
-                    x = FilterAlgorithm.MedianFilter(arrFilterAccX);
-                    arrFilterAccX.clear();
+                if (arrFilterLineAccX.size() == MEDIAN_FILTER_SIZE) {
+                    x = FilterAlgorithm.MedianFilter(arrFilterLineAccX);
+                    arrFilterLineAccX.clear();
                 } else {
                     return;
                 }
 
-                if (arrFilterAccY.size() == MEDIAN_FILTER_SIZE) {
-                    y = FilterAlgorithm.MedianFilter(arrFilterAccY);
-                    arrFilterAccY.clear();
+                if (arrFilterLineAccY.size() == MEDIAN_FILTER_SIZE) {
+                    y = FilterAlgorithm.MedianFilter(arrFilterLineAccY);
+                    arrFilterLineAccY.clear();
                 } else {
                     return;
                 }
 
-                if (arrFilterAccZ.size() == MEDIAN_FILTER_SIZE) {
-                    z = FilterAlgorithm.MedianFilter(arrFilterAccZ);
-                    arrFilterAccZ.clear();
+                if (arrFilterLineAccZ.size() == MEDIAN_FILTER_SIZE) {
+                    z = FilterAlgorithm.MedianFilter(arrFilterLineAccZ);
+                    arrFilterLineAccZ.clear();
                 } else {
                     return;
                 }
@@ -321,20 +339,20 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             mAccLineYData.append(currentTime, y);
             mAccLineZData.append(currentTime, z);
 
-            if (mLastAccTimer == 0 && accX.size() < N_SAMPLES) {
-                mLastAccTimer = currentTime;
-                mStartTime = currentTime;
-                accX.add((float) x);
-                accY.add((float) y);
-                accZ.add((float) z);
+            if (mLastLineAccTimer == 0 && mLineAccX.size() < N_SAMPLES) {
+                mLastLineAccTimer = currentTime;
+                mStartLineAccTime = currentTime;
+                mLineAccX.add((float) x);
+                mLineAccY.add((float) y);
+                mLineAccZ.add((float) z);
             } else {
 
-                long timeDifference = currentTime - mLastAccTimer;
-                if (timeDifference >= 20 && accX.size() < N_SAMPLES) {
-                    mLastAccTimer = currentTime;
-                    accX.add((float) x);
-                    accY.add((float) y);
-                    accZ.add((float) z);
+                long timeDifference = currentTime - mLastLineAccTimer;
+                if (timeDifference >= 20 && mLineAccX.size() < N_SAMPLES) {
+                    mLastLineAccTimer = currentTime;
+                    mLineAccX.add((float) x);
+                    mLineAccY.add((float) y);
+                    mLineAccZ.add((float) z);
                 }
             }
 
@@ -370,36 +388,87 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             mGyrsLineYData.append(currentTime, y);
             mGyrsLineZData.append(currentTime, z);
 
-            if (mLastGyroTimer == 0 && gyrsX.size() < N_SAMPLES) {
-                mLastGyroTimer = currentTime;
-                mStartTime = currentTime;
-                gyrsX.add((float) x);
-                gyrsY.add((float) y);
-                gyrsZ.add((float) z);
+            if (mLastGyrsTimer == 0 && mGyrsX.size() < N_SAMPLES) {
+                mLastGyrsTimer = currentTime;
+                mStartGyrsTime = currentTime;
+                mGyrsX.add((float) x);
+                mGyrsY.add((float) y);
+                mGyrsZ.add((float) z);
             } else {
-                long timeDifference = currentTime - mLastGyroTimer;
-                if (timeDifference >= 20 && gyrsX.size() < N_SAMPLES) {
-                    mLastGyroTimer = currentTime;
-                    gyrsX.add((float) x);
-                    gyrsY.add((float) x);
-                    gyrsZ.add((float) z);
+                long timeDifference = currentTime - mLastGyrsTimer;
+                if (timeDifference >= 20 && mGyrsX.size() < N_SAMPLES) {
+                    mLastGyrsTimer = currentTime;
+                    mGyrsX.add((float) x);
+                    mGyrsY.add((float) x);
+                    mGyrsZ.add((float) z);
+                }
+            }
+
+        } else if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            if (isShowMedianFilter) {
+                arrFilterGravityX.add(x);
+                arrFilterGravityY.add(y);
+                arrFilterGravityZ.add(z);
+
+                if (arrFilterGravityX.size() == MEDIAN_FILTER_SIZE) {
+                    x = FilterAlgorithm.MedianFilter(arrFilterGravityX);
+                    arrFilterGravityX.clear();
+                } else {
+                    return;
+                }
+
+                if (arrFilterGravityY.size() == MEDIAN_FILTER_SIZE) {
+                    y = FilterAlgorithm.MedianFilter(arrFilterGravityY);
+                    arrFilterGravityY.clear();
+                } else {
+                    return;
+                }
+
+                if (arrFilterGravityZ.size() == MEDIAN_FILTER_SIZE) {
+                    z = FilterAlgorithm.MedianFilter(arrFilterGravityZ);
+                    arrFilterGravityZ.clear();
+                } else {
+                    return;
+                }
+
+            }
+//            mGyrsLineXData.append(currentTime, x);
+//            mGyrsLineYData.append(currentTime, y);
+//            mGyrsLineZData.append(currentTime, z);
+
+            if (mLastGravityTimer == 0 && mGravityX.size() < N_SAMPLES) {
+                mLastGravityTimer = currentTime;
+                mStartGravityTime = currentTime;
+                mGravityX.add((float) x);
+                mGravityY.add((float) y);
+                mGravityZ.add((float) z);
+            } else {
+                long timeDifference = currentTime - mLastGravityTimer;
+                if (timeDifference >= 20 && mGravityX.size() < N_SAMPLES) {
+                    mLastGravityTimer = currentTime;
+                    mGravityX.add((float) x);
+                    mGravityY.add((float) x);
+                    mGravityZ.add((float) z);
                 }
             }
 
         }
+
+//        activityPredictionOfficial();
+        activityPredictionTest();
+
 //        activityPrediction(currentTime);
-        activityPrediction();
 
 
 //        long time = System.currentTimeMillis();
 //        switch (event.sensor.getType()) {
 //            case Sensor.TYPE_ACCELEROMETER:
-//                mAccelerometer = event.sensor;
+//                mLineAccelerometer = event.sensor;
 //                mAccLineXData.append(time, (double) event.values[0]);
 //                mAccLineYData.append(time, (double) event.values[1]);
 //                mAccLineZData.append(time, (double) event.values[2]);
 //                mAccelerometerTxt.setText("Accelerometer: X: " + event.values[0] + "; Y: " + event.values[1] + "; Z: " + event.values[2] + ";\n" +
-//                        "Power: " + mAccelerometer.getPower());
+//                        "Power: " + mLineAccelerometer.getPower());
 //                break;
 //
 //            case Sensor.TYPE_GYROSCOPE:
@@ -408,13 +477,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 //                mGyrsLineYData.append(time, (double) event.values[1]);
 //                mGyrsLineZData.append(time, (double) event.values[2]);
 //                mGyroscopeTxt.setText("Gyroscope: X: " + event.values[0] + "; Y: " + event.values[1] + "; Z: " + event.values[2] + ";\n" +
-//                        "Power: " + mAccelerometer.getPower());
+//                        "Power: " + mLineAccelerometer.getPower());
 //                break;
 //        }
 //        activityPrediction();
-//        accX.add(event.values[0]);
-//        accY.add(event.values[1]);
-//        accZ.add(event.values[2]);
+//        mLineAccX.add(event.values[0]);
+//        mLineAccY.add(event.values[1]);
+//        mLineAccZ.add(event.values[2]);
     }
 
     @Override
@@ -425,8 +494,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onResume() {
         super.onResume();
-        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_FASTEST);
+        mSensorManager.registerListener(this, mLineAccelerometer, SensorManager.SENSOR_DELAY_FASTEST);
         mSensorManager.registerListener(this, mGyroscope, SensorManager.SENSOR_DELAY_FASTEST);
+        mSensorManager.registerListener(this, mGravity, SensorManager.SENSOR_DELAY_FASTEST);
+
+//        mSensorManager.registerListener(this, mGravity, SensorManager.SENSOR_DELAY_FASTEST);
     }
 
     @Override
@@ -436,12 +508,12 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     @SuppressLint("SetTextI18n")
-    private void activityPrediction() {
-        if (accX.size() == N_SAMPLES && accY.size() == N_SAMPLES && accZ.size() == N_SAMPLES) {
+    private void activityPredictionOfficial() {
+        if (mLineAccX.size() == N_SAMPLES && mLineAccY.size() == N_SAMPLES && mLineAccZ.size() == N_SAMPLES) {
             List<Float> data = new ArrayList<>();
-            data.addAll(accX);
-            data.addAll(accY);
-            data.addAll(accZ);
+            data.addAll(mLineAccX);
+            data.addAll(mLineAccY);
+            data.addAll(mLineAccZ);
 
             mResults = mClassifier.predictProbabilities(toFloatArray(data));
 
@@ -456,22 +528,63 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             mActStanding.setText(Float.toString(round(mResults[4], 2)));
             mActLaying.setText(Float.toString(round(mResults[5], 2)));
 
-            accX.clear();
-            accY.clear();
-            accZ.clear();
+            mLineAccX.clear();
+            mLineAccY.clear();
+            mLineAccZ.clear();
+        }
+    }
+
+    private void activityPredictionTest() {
+        if (mLineAccX.size() == N_SAMPLES && mLineAccY.size() == N_SAMPLES && mLineAccZ.size() == N_SAMPLES
+                && mGyrsX.size() == N_SAMPLES && mGyrsY.size() == N_SAMPLES && mGyrsZ.size() == N_SAMPLES
+                && mGravityX.size() == N_SAMPLES && mGravityY.size() == N_SAMPLES && mGravityZ.size() == N_SAMPLES) {
+            List<Float> data = new ArrayList<>();
+            data.addAll(mLineAccX);
+            data.addAll(mLineAccY);
+            data.addAll(mLineAccZ);
+            data.addAll(mGyrsX);
+            data.addAll(mGyrsY);
+            data.addAll(mGyrsZ);
+            data.addAll(mGravityX);
+            data.addAll(mGravityY);
+            data.addAll(mGravityZ);
+
+
+            mResults = mClassifier.predictProbabilities(toFloatArray(data));
+
+            mHumanActivity.addCurrentCaloriesBurning(mResults);
+            mHealthInfo.setText("Calories burning: " + String.format("%.5f", mHumanActivity.getCurrentCalories()) + " cal\n" +
+                    "Current Activity: " + mHumanActivity.getCurrentActivity());
+
+            mActWalking.setText(Float.toString(round(mResults[0], 2)));
+            mActUpstairs.setText(Float.toString(round(mResults[1], 2)));
+            mActDownstairs.setText(Float.toString(round(mResults[2], 2)));
+            mActSitting.setText(Float.toString(round(mResults[3], 2)));
+            mActStanding.setText(Float.toString(round(mResults[4], 2)));
+            mActLaying.setText(Float.toString(round(mResults[5], 2)));
+
+            mLineAccX.clear();
+            mLineAccY.clear();
+            mLineAccZ.clear();
+            mGyrsX.clear();
+            mGyrsY.clear();
+            mGyrsZ.clear();
+            mGravityX.clear();
+            mGravityY.clear();
+            mGravityZ.clear();
         }
     }
 
     private void activityPrediction(long eventTime) {
-        if (accX.size() == N_SAMPLES && accY.size() == N_SAMPLES && accZ.size() == N_SAMPLES
-                && gyrsX.size() == N_SAMPLES && gyrsY.size() == N_SAMPLES && gyrsZ.size() == N_SAMPLES) {
+        if (mLineAccX.size() == N_SAMPLES && mLineAccY.size() == N_SAMPLES && mLineAccZ.size() == N_SAMPLES
+                && mGyrsX.size() == N_SAMPLES && mGyrsY.size() == N_SAMPLES && mGyrsZ.size() == N_SAMPLES) {
             List<Float> data = new ArrayList<>();
-            data.addAll(gyrsX);
-            data.addAll(gyrsY);
-            data.addAll(gyrsZ);
-            data.addAll(accX);
-            data.addAll(accY);
-            data.addAll(accZ);
+            data.addAll(mGyrsX);
+            data.addAll(mGyrsY);
+            data.addAll(mGyrsZ);
+            data.addAll(mLineAccX);
+            data.addAll(mLineAccY);
+            data.addAll(mLineAccZ);
 
 
             mResults = mClassifier.predictProbabilities(toFloatArray(data));
@@ -484,23 +597,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             mActStanding.setText(Float.toString(round(mResults[4], 2)));
             mActLaying.setText(Float.toString(round(mResults[5], 2)));
 
-            Date date = new Date(eventTime - mStartTime);
+            Date date = new Date(eventTime - mStartGravityTime);
             DateFormat formatter = new SimpleDateFormat("HH:mm:ss:SSS");
             String dateFormatted = formatter.format(date);
 
-            mTimeTextView.setText(dateFormatted + "Number of Reading: " + Integer.toString(accX.size()));
+            mTimeTextView.setText(dateFormatted + "Number of Reading: " + Integer.toString(mLineAccX.size()));
 
             //invalidate();
-            accX.clear();
-            accY.clear();
-            accZ.clear();
-            gyrsX.clear();
-            gyrsY.clear();
-            gyrsZ.clear();
+            mLineAccX.clear();
+            mLineAccY.clear();
+            mLineAccZ.clear();
+            mGyrsX.clear();
+            mGyrsY.clear();
+            mGyrsZ.clear();
 
-            mStartTime = 0L;
-            mLastAccTimer = 0L;
-            mLastGyroTimer = 0L;
+            mStartGravityTime = 0L;
+            mLastLineAccTimer = 0L;
+            mLastGyrsTimer = 0L;
         }
     }
 
