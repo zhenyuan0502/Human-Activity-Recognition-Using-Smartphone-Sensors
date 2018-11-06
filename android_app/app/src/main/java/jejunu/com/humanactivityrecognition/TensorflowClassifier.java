@@ -7,19 +7,19 @@ import org.tensorflow.contrib.android.TensorFlowInferenceInterface;
 public class TensorFlowClassifier {
 
     private TensorFlowInferenceInterface inferenceInterface;
-    private static final String MODEL_FILE = "file:///android_asset/frozen_har_6ip.pb";
-//    private static final String INPUT_NODE = "inputs";
-//    private static final String[] OUTPUT_NODES = {"y_"};
-//    private static final String OUTPUT_NODE = "y_";
-//    private static final long[] INPUT_SIZE = {1, 200, 3};
-//    private static final int OUTPUT_SIZE = 6;
-
-// Frozen_har_6ip
-    private static final String INPUT_NODE = "input";
+    private static final String MODEL_FILE = "file:///android_asset/frozen_model.pb";
+    private static final String INPUT_NODE = "inputs";
     private static final String[] OUTPUT_NODES = {"y_"};
     private static final String OUTPUT_NODE = "y_";
-    private static final long[] INPUT_SIZE = {1, 128, 6};
+    private static final long[] INPUT_SIZE = {1, 200, 3};
     private static final int OUTPUT_SIZE = 6;
+
+// Frozen_har_6ip
+//    private static final String INPUT_NODE = "input";
+//    private static final String[] OUTPUT_NODES = {"y_"};
+//    private static final String OUTPUT_NODE = "y_";
+//    private static final long[] INPUT_SIZE = {1, 128, 6};
+//    private static final int OUTPUT_SIZE = 6;
 
     // ANN_Model
 //    private static final String INPUT_NODE = "dense_1_input";

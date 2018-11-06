@@ -19,9 +19,9 @@ print("Loading data")
 
 # UCI 
 # https://archive.ics.uci.edu/ml/datasets/human+activity+recognition+using+smartphones
-features561 = pd.read_csv('data_description/features.txt', header = None, sep='\s+')
-train_path = 'uci_har/data/train/'
-test_path = 'uci_har/data/test/'
+features561 = pd.read_csv('../data/data_description/features.txt', header = None, sep='\s+')
+train_path = '../data/train/'
+test_path = '../data/test/'
 subject_train = pd.read_csv(train_path + 'subject_train.txt', header = None, sep='\s+')
 
 INPUT_SIGNAL_TYPES = [
@@ -43,7 +43,7 @@ ACTIVITIES = {
     5: 'LAYING',
 }
 
-DATADIR = 'uci_har/data/'
+DATADIR = '../data/'
 
 SIGNALS = [
     "body_acc_x",

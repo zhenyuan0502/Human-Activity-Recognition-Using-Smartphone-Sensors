@@ -1,5 +1,6 @@
 package jejunu.com.humanactivityrecognition;
 
+import android.annotation.SuppressLint;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -8,10 +9,14 @@ import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.View;
+import android.widget.CompoundButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+import android.widget.ToggleButton;
 
 import com.scichart.charting.ClipMode;
+import com.scichart.charting.model.dataSeries.IDataSeries;
 import com.scichart.charting.model.dataSeries.XyDataSeries;
 import com.scichart.charting.modifiers.AxisDragModifierBase;
 import com.scichart.charting.modifiers.ModifierGroup;
@@ -34,13 +39,13 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
+import uk.me.berndporr.iirj.Butterworth;
+
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
     private SensorManager mSensorManager;
     private Sensor mAccelerometer;
     private Sensor mGyroscope;
-    private TextView mGyroscopeTxt;
-    private TextView mAccelerometerTxt;
 
     private Toolbar mToolbar;
     private SciChartSurface mGyrsChartSurface;
@@ -54,19 +59,27 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private XyDataSeries mGyrsLineXData, mGyrsLineYData, mGyrsLineZData;
     private XyDataSeries mAccLineXData, mAccLineYData, mAccLineZData;
 
-    // remember to change this
-    private static final int N_SAMPLES = 128;
+    // remember to change this (128 - 200)
+    private static final int N_SAMPLES = 200;
     private static List<Float> accX, accY, accZ, gyrsX, gyrsY, gyrsZ;
-    private TextView timeTextView;
-    private Long lastAccTimer = 0L;
-    private Long lastGyroTimer = 0L;
-    private Long startTime = 0L;
+    private TextView mTimeTextView, mHealthInfo;
+    private Long mLastAccTimer = 0L;
+    private Long mLastGyroTimer = 0L;
+    private Long mStartTime = 0L;
 
     private String[] labels = {"Downstairs", "Upstairs", "Walking", "Sitting", "Laying", "Standing"};
     //    private String[] mLabels = {"WAKING", "WALKING_UPSTAIRS", "WALKING_DOWNSTAIRS", "SITTING", "STANDING", "LAYING"};
     private TensorFlowClassifier mClassifier;
     private TextView mActWalking, mActUpstairs, mActDownstairs, mActSitting, mActStanding, mActLaying;
     private float[] mResults;
+    private Butterworth mButterworth;
+
+    private ToggleButton mShowPredictionBtn, mShowButterworthBtn, mShowMedianFilterBtn;
+    private boolean isShowButterworth = true;
+    private boolean isShowMedianFilter = true;
+    private LinearLayout mPredictionFrame;
+
+    private HumanActivity mHumanActivity = new HumanActivity();
 
 
     @Override
@@ -93,6 +106,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         mClassifier = new TensorFlowClassifier(getApplicationContext());
 
+        mButterworth = new Butterworth();
+        mButterworth.lowPass(3, 50, 20);
+
     }
 
     private void initToolbar() {
@@ -111,16 +127,46 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     private void initComponentViews() {
-        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        assert mSensorManager != null;
-//        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        mPredictionFrame = findViewById(R.id.prediction_frame);
+        mShowPredictionBtn = findViewById(R.id.show_prediction_btn);
+        mShowPredictionBtn.setChecked(true);
+        mShowPredictionBtn.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+                if (b)
+                    mPredictionFrame.setVisibility(View.VISIBLE);
+                else
+                    mPredictionFrame.setVisibility(View.GONE);
+            }
+        });
 
+        mShowButterworthBtn = findViewById(R.id.show_butterworth_btn);
+        mShowButterworthBtn.setChecked(isShowButterworth);
+        mShowButterworthBtn.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+                isShowButterworth = b;
+                Toast.makeText(getApplicationContext(), "3rd low-pass Butterworth Filter: " + isShowButterworth, Toast.LENGTH_SHORT).show();
+
+            }
+        });
+
+        mShowMedianFilterBtn = findViewById(R.id.show_median_btn);
+        mShowMedianFilterBtn.setChecked(isShowMedianFilter);
+        mShowMedianFilterBtn.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+            @Override
+            public void onCheckedChanged(CompoundButton compoundButton, boolean b) {
+                isShowMedianFilter = b;
+                Toast.makeText(getApplicationContext(), "Median Filter: " + isShowMedianFilter, Toast.LENGTH_SHORT).show();
+            }
+        });
+
+
+        mSensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
         mGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-        mAccelerometerTxt = findViewById(R.id.accelerometer_txt);
-        mGyroscopeTxt = findViewById(R.id.gyroscope_txt);
 
-        mChartLayout = findViewById(R.id.gyroscope_chart);
+        mChartLayout = findViewById(R.id.chart);
         mGyrsChartSurface = new SciChartSurface(this);
         mAccChartSurface = new SciChartSurface(this);
 
@@ -137,151 +183,29 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         mChartBuilder = SciChartBuilder.instance();
 
-        // Create a numeric X axis
-        final IAxis xGyrsAxis = mChartBuilder.newNumericAxis()
-                .withAxisTitle("X Axis - Gyroscope")
-                .withAutoRangeMode(AutoRange.Always)
-                .withAutoFitMarginalLabels(true)
-                .build();
-
-        // Create a numeric Y axis
-        final IAxis yGyrsAxis = mChartBuilder.newNumericAxis()
-                .withAxisTitle("Y Axis - Gyroscope")
-                .withAxisAlignment(AxisAlignment.Left)
-                .withDrawMajorTicks(true)
-                .withVisibleRange(-10, 10)
-                .withAutoFitMarginalLabels(true)
-                .build();
-
-        // Create a numeric X axis
-        final IAxis xAccAxis = mChartBuilder.newNumericAxis()
-                .withAxisTitle("X Axis - Accelerometer")
-                .withAutoRangeMode(AutoRange.Always)
-                .build();
-
-
-        // Create another numeric axis
-        final IAxis yAccAxis = mChartBuilder.newNumericAxis()
-                .withAxisTitle("Y Axis - Accelerometer")
-                .withAxisAlignment(AxisAlignment.Left)
-                .withDrawMajorTicks(true)
-                .withVisibleRange(-20, 20)
-                .withAutoFitMarginalLabels(true)
-                .build();
-
-
         // Create interactivity modifiers
-        ModifierGroup chartModifiers = mChartBuilder.newModifierGroup()
-                .withPinchZoomModifier().build()
-                .withZoomPanModifier().withReceiveHandledEvents(true).build()
-                .withZoomExtentsModifier().withReceiveHandledEvents(true).build()
-                .withXAxisDragModifier().withReceiveHandledEvents(true).withDragMode(AxisDragModifierBase.AxisDragMode.Scale).withClipModex(ClipMode.None).build()
-                .withYAxisDragModifier().withReceiveHandledEvents(true).withDragMode(AxisDragModifierBase.AxisDragMode.Pan).build()
-                .withLegendModifier().withOrientation(Orientation.VERTICAL).withShowCheckBoxes(true).withShowSeriesMarkers(true).withSourceMode(SourceMode.AllVisibleSeries).build()
-                .build();
+        Collections.addAll(mGyrsChartSurface.getYAxes(), createAxis(false, "Gyroscope", 10));
+        Collections.addAll(mGyrsChartSurface.getXAxes(), createAxis(true, "Gyroscope", 0));
+        Collections.addAll(mGyrsChartSurface.getChartModifiers(), buildModifier());
+        Collections.addAll(mAccChartSurface.getYAxes(), createAxis(false, "Linear Accelerometer", 20));
+        Collections.addAll(mAccChartSurface.getXAxes(), createAxis(true, "Linear Accelerometer", 0));
+        Collections.addAll(mAccChartSurface.getChartModifiers(), buildModifier());
 
-        ModifierGroup chartModifiers2 = mChartBuilder.newModifierGroup()
-                .withPinchZoomModifier().build()
-                .withZoomPanModifier().withReceiveHandledEvents(true).build()
-                .withZoomExtentsModifier().withReceiveHandledEvents(true).build()
-                .withXAxisDragModifier().withReceiveHandledEvents(true).withDragMode(AxisDragModifierBase.AxisDragMode.Scale).withClipModex(ClipMode.None).build()
-                .withYAxisDragModifier().withReceiveHandledEvents(true).withDragMode(AxisDragModifierBase.AxisDragMode.Pan).build()
-                .withLegendModifier().withOrientation(Orientation.VERTICAL).withShowCheckBoxes(true).withShowSeriesMarkers(true).withSourceMode(SourceMode.AllVisibleSeries).build()
-                .build();
+        mGyrsLineXData = buildDataSeries("X Gyroscope");
+        mGyrsLineYData = buildDataSeries("Y Gyroscope");
+        mGyrsLineZData = buildDataSeries("Z Gyroscope");
 
-        Collections.addAll(mGyrsChartSurface.getYAxes(), yGyrsAxis);
-        Collections.addAll(mGyrsChartSurface.getXAxes(), xGyrsAxis);
-        Collections.addAll(mGyrsChartSurface.getChartModifiers(), chartModifiers);
-        Collections.addAll(mAccChartSurface.getYAxes(), yAccAxis);
-        Collections.addAll(mAccChartSurface.getXAxes(), xAccAxis);
-        Collections.addAll(mAccChartSurface.getChartModifiers(), chartModifiers2);
+        mAccLineXData = buildDataSeries("X Accelerometer");
+        mAccLineYData = buildDataSeries("Y Accelerometer");
+        mAccLineZData = buildDataSeries("Z Accelerometer");
 
+        mGyrsChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.LightBlue, mGyrsLineXData));
+        mGyrsChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.Yellow, mGyrsLineYData));
+        mGyrsChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.Red, mGyrsLineZData));
 
-        mGyrsLineXData = mChartBuilder
-                .newXyDataSeries(Long.class, Double.class)
-                .withFifoCapacity(mCapacitySize)
-                .withSeriesName("X Gyroscope")
-                .build();
-
-        mGyrsLineYData = mChartBuilder
-                .newXyDataSeries(Long.class, Double.class)
-                .withFifoCapacity(mCapacitySize)
-                .withSeriesName("Y Gyroscope")
-                .build();
-
-        mGyrsLineZData = mChartBuilder
-                .newXyDataSeries(Long.class, Double.class)
-                .withFifoCapacity(mCapacitySize)
-                .withSeriesName("Z Gyroscope")
-                .build();
-
-
-        mAccLineXData = mChartBuilder
-                .newXyDataSeries(Long.class, Double.class)
-                .withFifoCapacity(mCapacitySize)
-                .withSeriesName("X Accelerometer")
-                .build();
-
-        mAccLineYData = mChartBuilder
-                .newXyDataSeries(Long.class, Double.class)
-                .withFifoCapacity(mCapacitySize)
-                .withSeriesName("Y Accelerometer")
-                .build();
-
-        mAccLineZData = mChartBuilder
-                .newXyDataSeries(Long.class, Double.class)
-                .withFifoCapacity(mCapacitySize)
-                .withSeriesName("Z Accelerometer")
-                .build();
-
-        // Create and configure a line series
-        final IRenderableSeries lineGyrsXSeries = mChartBuilder.newLineSeries()
-                .withStrokeStyle(ColorUtil.LightBlue, 2f, true)
-                .withDrawLineMode(LineDrawMode.ClosedLines)
-                .withDataSeries(mGyrsLineXData)
-                .build();
-
-        final IRenderableSeries lineGyrsYSeries = mChartBuilder.newLineSeries()
-                .withStrokeStyle(ColorUtil.Yellow, 2f, true)
-                .withDrawLineMode(LineDrawMode.ClosedLines)
-                .withDataSeries(mGyrsLineYData)
-                .build();
-
-        final IRenderableSeries lineGyrsZSeries = mChartBuilder.newLineSeries()
-                .withStrokeStyle(ColorUtil.Red, 2f, true)
-                .withDrawLineMode(LineDrawMode.ClosedLines)
-                .withDataSeries(mGyrsLineZData)
-                .build();
-
-        // Add a RenderableSeries onto the SciChartSurface
-        mGyrsChartSurface.getRenderableSeries().add(lineGyrsXSeries);
-        mGyrsChartSurface.getRenderableSeries().add(lineGyrsYSeries);
-        mGyrsChartSurface.getRenderableSeries().add(lineGyrsZSeries);
-
-
-        // Create and configure a line series
-        final IRenderableSeries lineAccXSeries = mChartBuilder.newLineSeries()
-                .withStrokeStyle(ColorUtil.LightBlue, 2f, true)
-                .withDrawLineMode(LineDrawMode.ClosedLines)
-                .withDataSeries(mAccLineXData)
-                .build();
-
-        final IRenderableSeries lineAccYSeries = mChartBuilder.newLineSeries()
-                .withStrokeStyle(ColorUtil.Yellow, 2f, true)
-                .withDrawLineMode(LineDrawMode.ClosedLines)
-                .withDataSeries(mAccLineYData)
-                .build();
-
-        final IRenderableSeries lineAccZSeries = mChartBuilder.newLineSeries()
-                .withStrokeStyle(ColorUtil.Red, 2f, true)
-                .withDrawLineMode(LineDrawMode.ClosedLines)
-                .withDataSeries(mAccLineZData)
-                .build();
-
-        mAccChartSurface.getRenderableSeries().add(lineAccXSeries);
-        mAccChartSurface.getRenderableSeries().add(lineAccYSeries);
-        mAccChartSurface.getRenderableSeries().add(lineAccZSeries);
-
+        mAccChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.LightBlue, mAccLineXData));
+        mAccChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.Yellow, mAccLineYData));
+        mAccChartSurface.getRenderableSeries().add(renderLineSeries(ColorUtil.Red, mAccLineZData));
 
         mActWalking = findViewById(R.id.walking_prob);
         mActUpstairs = findViewById(R.id.walking_upstairs_prob);
@@ -289,61 +213,184 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         mActSitting = findViewById(R.id.sitting_prob);
         mActLaying = findViewById(R.id.laying_prob);
         mActStanding = findViewById(R.id.standing_prob);
-        timeTextView = findViewById(R.id.timer);
+
+        mTimeTextView = findViewById(R.id.timer);
+        mHealthInfo = findViewById(R.id.health_info);
 
     }
+
+    private IAxis createAxis(boolean isX, String name, double absoluteYRange) {
+        if (isX)
+            return mChartBuilder.newNumericAxis()
+                    .withAxisTitle("X Axis - " + name)
+                    .withAutoRangeMode(AutoRange.Always)
+                    .withAutoFitMarginalLabels(true)
+                    .build();
+
+        absoluteYRange = Math.abs(absoluteYRange);
+        return mChartBuilder.newNumericAxis()
+                .withAxisTitle("Y Axis - " + name)
+                .withAxisAlignment(AxisAlignment.Left)
+                .withDrawMajorTicks(true)
+                .withVisibleRange(-1 * absoluteYRange, absoluteYRange)
+                .withAutoFitMarginalLabels(true)
+                .build();
+    }
+
+    private ModifierGroup buildModifier() {
+        return mChartBuilder.newModifierGroup()
+                .withPinchZoomModifier().build()
+                .withZoomPanModifier().withReceiveHandledEvents(true).build()
+                .withZoomExtentsModifier().withReceiveHandledEvents(true).build()
+                .withXAxisDragModifier().withReceiveHandledEvents(true).withDragMode(AxisDragModifierBase.AxisDragMode.Scale).withClipModex(ClipMode.None).build()
+                .withYAxisDragModifier().withReceiveHandledEvents(true).withDragMode(AxisDragModifierBase.AxisDragMode.Pan).build()
+                .withLegendModifier().withOrientation(Orientation.VERTICAL).withShowCheckBoxes(true).withShowSeriesMarkers(true).withSourceMode(SourceMode.AllVisibleSeries).build()
+                .build();
+    }
+
+    private XyDataSeries buildDataSeries(String name) {
+        return mChartBuilder
+                .newXyDataSeries(Long.class, Double.class)
+                .withFifoCapacity(mCapacitySize)
+                .withSeriesName(name)
+                .build();
+    }
+
+    private IRenderableSeries renderLineSeries(int seriesColor, IDataSeries dataSeries) {
+        return mChartBuilder.newLineSeries()
+                .withStrokeStyle(seriesColor, 2f, true)
+                .withDrawLineMode(LineDrawMode.ClosedLines)
+                .withDataSeries(dataSeries)
+                .build();
+    }
+
+    private static int MEDIAN_FILTER_SIZE = 5;
+    private ArrayList<Double> arrFilterAccX = new ArrayList<Double>();
+    private ArrayList<Double> arrFilterAccY = new ArrayList<Double>();
+    private ArrayList<Double> arrFilterAccZ = new ArrayList<Double>();
+    private ArrayList<Double> arrFilterGyrsX = new ArrayList<Double>();
+    private ArrayList<Double> arrFilterGyrsY = new ArrayList<Double>();
+    private ArrayList<Double> arrFilterGyrsZ = new ArrayList<Double>();
+
 
     @Override
     public void onSensorChanged(SensorEvent event) {
         long currentTime = (new Date()).getTime() + (event.timestamp - System.nanoTime()) / 1000000L;
+        double x, y, z;
+        if (isShowButterworth) {
+            x = mButterworth.filter(event.values[0]);
+            y = mButterworth.filter(event.values[1]);
+            z = mButterworth.filter(event.values[2]);
+        } else {
+            x = event.values[0];
+            y = event.values[1];
+            z = event.values[2];
+        }
 
         if (event.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
-            // Accelerometer Sensor
-            mAccLineXData.append(currentTime, (double) event.values[0]);
-            mAccLineYData.append(currentTime, (double) event.values[1]);
-            mAccLineZData.append(currentTime, (double) event.values[2]);
+            if (isShowMedianFilter) {
+                arrFilterAccX.add(x);
+                arrFilterAccY.add(y);
+                arrFilterAccZ.add(z);
 
-            if (lastAccTimer == 0 && accX.size() < N_SAMPLES) {
-                lastAccTimer = currentTime;
-                startTime = currentTime;
-                accX.add(event.values[0]);
-                accY.add(event.values[1]);
-                accZ.add(event.values[2]);
+                if (arrFilterAccX.size() == MEDIAN_FILTER_SIZE) {
+                    x = FilterAlgorithm.MedianFilter(arrFilterAccX);
+                    arrFilterAccX.clear();
+                } else {
+                    return;
+                }
+
+                if (arrFilterAccY.size() == MEDIAN_FILTER_SIZE) {
+                    y = FilterAlgorithm.MedianFilter(arrFilterAccY);
+                    arrFilterAccY.clear();
+                } else {
+                    return;
+                }
+
+                if (arrFilterAccZ.size() == MEDIAN_FILTER_SIZE) {
+                    z = FilterAlgorithm.MedianFilter(arrFilterAccZ);
+                    arrFilterAccZ.clear();
+                } else {
+                    return;
+                }
+
+            }
+
+            // Accelerometer Sensor
+            mAccLineXData.append(currentTime, x);
+            mAccLineYData.append(currentTime, y);
+            mAccLineZData.append(currentTime, z);
+
+            if (mLastAccTimer == 0 && accX.size() < N_SAMPLES) {
+                mLastAccTimer = currentTime;
+                mStartTime = currentTime;
+                accX.add((float) x);
+                accY.add((float) y);
+                accZ.add((float) z);
             } else {
 
-                long timeDifference = currentTime - lastAccTimer;
+                long timeDifference = currentTime - mLastAccTimer;
                 if (timeDifference >= 20 && accX.size() < N_SAMPLES) {
-                    lastAccTimer = currentTime;
-                    accX.add(event.values[0]);
-                    accY.add(event.values[1]);
-                    accZ.add(event.values[2]);
+                    mLastAccTimer = currentTime;
+                    accX.add((float) x);
+                    accY.add((float) y);
+                    accZ.add((float) z);
                 }
             }
 
         } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
-            mGyrsLineXData.append(currentTime, (double) event.values[0]);
-            mGyrsLineYData.append(currentTime, (double) event.values[1]);
-            mGyrsLineZData.append(currentTime, (double) event.values[2]);
+            if (isShowMedianFilter) {
+                arrFilterGyrsX.add(x);
+                arrFilterGyrsY.add(y);
+                arrFilterGyrsZ.add(z);
 
-            if (lastGyroTimer == 0 && gyrsX.size() < N_SAMPLES) {
-                lastGyroTimer = currentTime;
-                startTime = currentTime;
-                gyrsX.add(event.values[0]);
-                gyrsY.add(event.values[1]);
-                gyrsZ.add(event.values[2]);
+                if (arrFilterGyrsX.size() == MEDIAN_FILTER_SIZE) {
+                    x = FilterAlgorithm.MedianFilter(arrFilterGyrsX);
+                    arrFilterGyrsX.clear();
+                } else {
+                    return;
+                }
+
+                if (arrFilterGyrsY.size() == MEDIAN_FILTER_SIZE) {
+                    y = FilterAlgorithm.MedianFilter(arrFilterGyrsY);
+                    arrFilterGyrsY.clear();
+                } else {
+                    return;
+                }
+
+                if (arrFilterGyrsZ.size() == MEDIAN_FILTER_SIZE) {
+                    z = FilterAlgorithm.MedianFilter(arrFilterGyrsZ);
+                    arrFilterGyrsZ.clear();
+                } else {
+                    return;
+                }
+
+            }
+            mGyrsLineXData.append(currentTime, x);
+            mGyrsLineYData.append(currentTime, y);
+            mGyrsLineZData.append(currentTime, z);
+
+            if (mLastGyroTimer == 0 && gyrsX.size() < N_SAMPLES) {
+                mLastGyroTimer = currentTime;
+                mStartTime = currentTime;
+                gyrsX.add((float) x);
+                gyrsY.add((float) y);
+                gyrsZ.add((float) z);
             } else {
-                long timeDifference = currentTime - lastGyroTimer;
+                long timeDifference = currentTime - mLastGyroTimer;
                 if (timeDifference >= 20 && gyrsX.size() < N_SAMPLES) {
-                    lastGyroTimer = currentTime;
-                    gyrsX.add(event.values[0]);
-                    gyrsY.add(event.values[1]);
-                    gyrsZ.add(event.values[2]);
+                    mLastGyroTimer = currentTime;
+                    gyrsX.add((float) x);
+                    gyrsY.add((float) x);
+                    gyrsZ.add((float) z);
                 }
             }
 
         }
-        activityPrediction(currentTime);
-//        activityPrediction();
+//        activityPrediction(currentTime);
+        activityPrediction();
+
+
 //        long time = System.currentTimeMillis();
 //        switch (event.sensor.getType()) {
 //            case Sensor.TYPE_ACCELEROMETER:
@@ -378,8 +425,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     protected void onResume() {
         super.onResume();
-        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
-        mSensorManager.registerListener(this, mGyroscope, SensorManager.SENSOR_DELAY_GAME);
+        mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_FASTEST);
+        mSensorManager.registerListener(this, mGyroscope, SensorManager.SENSOR_DELAY_FASTEST);
     }
 
     @Override
@@ -388,6 +435,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         mSensorManager.unregisterListener(this);
     }
 
+    @SuppressLint("SetTextI18n")
     private void activityPrediction() {
         if (accX.size() == N_SAMPLES && accY.size() == N_SAMPLES && accZ.size() == N_SAMPLES) {
             List<Float> data = new ArrayList<>();
@@ -396,6 +444,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             data.addAll(accZ);
 
             mResults = mClassifier.predictProbabilities(toFloatArray(data));
+
+            mHumanActivity.addCurrentCaloriesBurning(mResults);
+            mHealthInfo.setText("Calories burning: " + String.format("%.5f", mHumanActivity.getCurrentCalories()) + " cal\n" +
+                    "Current Activity: " + mHumanActivity.getCurrentActivity());
 
             mActWalking.setText(Float.toString(round(mResults[0], 2)));
             mActUpstairs.setText(Float.toString(round(mResults[1], 2)));
@@ -424,6 +476,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
             mResults = mClassifier.predictProbabilities(toFloatArray(data));
 
+
             mActWalking.setText(Float.toString(round(mResults[0], 2)));
             mActUpstairs.setText(Float.toString(round(mResults[1], 2)));
             mActDownstairs.setText(Float.toString(round(mResults[2], 2)));
@@ -431,11 +484,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             mActStanding.setText(Float.toString(round(mResults[4], 2)));
             mActLaying.setText(Float.toString(round(mResults[5], 2)));
 
-            Date date = new Date(eventTime - startTime);
+            Date date = new Date(eventTime - mStartTime);
             DateFormat formatter = new SimpleDateFormat("HH:mm:ss:SSS");
             String dateFormatted = formatter.format(date);
 
-            timeTextView.setText(dateFormatted + "Number of Reading: " + Integer.toString(accX.size()));
+            mTimeTextView.setText(dateFormatted + "Number of Reading: " + Integer.toString(accX.size()));
 
             //invalidate();
             accX.clear();
@@ -445,9 +498,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             gyrsY.clear();
             gyrsZ.clear();
 
-            startTime = 0L;
-            lastAccTimer = 0L;
-            lastGyroTimer = 0L;
+            mStartTime = 0L;
+            mLastAccTimer = 0L;
+            mLastGyroTimer = 0L;
         }
     }
 

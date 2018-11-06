@@ -18,12 +18,12 @@ from Plot_Confusion_Matrix import plot_confusion_matrix
 
 print(tf.__version__)
 print("Loading model from file")
-new_model = tf.keras.models.load_model('kaggle_har/data/ANN_Model.h5')
+new_model = tf.keras.models.load_model('data/ANN_Model.h5')
 new_model.summary()
-plot_model(new_model, to_file='kaggle_har/results/model_visualization.png')
+plot_model(new_model, to_file='results/model_visualization.png')
 
-train = pd.read_csv('kaggle_har/data/train.csv')
-test = pd.read_csv('kaggle_har/data/test.csv')
+train = pd.read_csv('data/train.csv')
+test = pd.read_csv('data/test.csv')
 
 #Feature matrix
 train_features = train.iloc[:, :561].as_matrix()

@@ -17,6 +17,42 @@
             app:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar" />
     </android.support.design.widget.AppBarLayout>
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:weightSum="3">
+
+        <ToggleButton
+            android:id="@+id/show_prediction_btn"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textOff="Prediction is hide"
+            android:textOn="Prediction is shown" />
+
+        <ToggleButton
+            android:id="@+id/show_butterworth_btn"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+
+            android:layout_weight="1"
+            android:textOff="Butterworth is OFF"
+            android:textOn="Butterworth is ON" />
+
+        <ToggleButton
+            android:id="@+id/show_median_btn"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+
+            android:layout_weight="1"
+            android:textOff="Median Filter is OFF"
+            android:textOn="Median Filter is ON" />
+
+    </LinearLayout>
+
+
     <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
         android:id="@+id/content"
         android:layout_width="match_parent"
@@ -27,169 +63,183 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!--<TextView-->
+            <!--android:layout_width="match_parent"-->
+            <!--android:layout_height="wrap_content"-->
+            <!--android:text="METS - Calories burning"-->
+            <!--android:textAlignment="center"-->
+            <!--android:textSize="18sp"-->
+            <!--android:textStyle="bold" />-->
+
             <TextView
-                android:id="@+id/timer"
-                android:layout_height="wrap_content"
+                android:id="@+id/health_info"
                 android:layout_width="match_parent"
-                android:text="Timer"
+                android:layout_height="wrap_content"
+                android:text="METS - Calories burning"
                 android:textAlignment="center"
+                android:textColor="#FF0000"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
-
-            <TableRow
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:padding="22dp"
-                android:textAlignment="center">
-
-                <TextView
-                    android:layout_weight="1"
-                    android:text="Activity"
-                    android:textAlignment="center"
-                    android:textSize="20sp"
-                    android:textStyle="bold|italic" />
-
-                <TextView
-                    android:layout_weight="1"
-                    android:text="Probability"
-                    android:textAlignment="center"
-                    android:textSize="20sp"
-                    android:textStyle="bold|italic" />
-            </TableRow>
-
-            <TableRow
-                android:layout_width="fill_parent"
-                android:layout_height="fill_parent"
-                android:padding="22dp">
-
-                <TextView
-                    android:layout_weight="1"
-                    android:text="WALKING"
-                    android:textAlignment="center"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/walking_prob"
-                    android:layout_weight="1"
-                    android:textAlignment="center"
-                    android:textSize="18sp" />
-            </TableRow>
-
-            <TableRow
-                android:layout_width="fill_parent"
-                android:layout_height="fill_parent"
-                android:padding="22dp">
-
-                <TextView
-                    android:layout_weight="1"
-                    android:text="UPSTAIRS"
-                    android:textAlignment="center"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/walking_upstairs_prob"
-                    android:layout_weight="1"
-                    android:textAlignment="center"
-                    android:textSize="18sp" />
-            </TableRow>
-
-            <TableRow
-                android:layout_width="fill_parent"
-                android:layout_height="fill_parent"
-                android:padding="22dp">
-
-                <TextView
-                    android:layout_weight="1"
-                    android:text="DOWNSTAIRS"
-                    android:textAlignment="center"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/walking_downstairs_prob"
-                    android:layout_weight="1"
-                    android:textAlignment="center"
-                    android:textSize="18sp" />
-            </TableRow>
-
-            <TableRow
-                android:layout_width="fill_parent"
-                android:layout_height="fill_parent"
-                android:padding="22dp">
-
-                <TextView
-                    android:layout_weight="1"
-                    android:text="SITTING"
-                    android:textAlignment="center"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/sitting_prob"
-                    android:layout_weight="1"
-                    android:textAlignment="center"
-                    android:textSize="18sp" />
-            </TableRow>
-
-            <TableRow
-                android:layout_width="fill_parent"
-                android:layout_height="fill_parent"
-                android:padding="22dp">
-
-                <TextView
-                    android:layout_weight="1"
-                    android:text="STANDING"
-                    android:textAlignment="center"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/standing_prob"
-                    android:layout_weight="1"
-                    android:textAlignment="center"
-                    android:textSize="18sp" />
-            </TableRow>
-
-            <TableRow
-                android:layout_width="fill_parent"
-                android:layout_height="fill_parent"
-                android:padding="22dp">
-
-                <TextView
-                    android:layout_weight="1"
-                    android:text="LAYING"
-                    android:textAlignment="center"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/laying_prob"
-                    android:layout_weight="1"
-                    android:textAlignment="center"
-                    android:textSize="18sp" />
-            </TableRow>
-
-
-            <TextView
-                android:id="@+id/gyroscope_txt"
+            <LinearLayout
+                android:id="@+id/prediction_frame"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textSize="23sp" />
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/timer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Timer"
+                    android:textAlignment="center"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+
+                <TableRow
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="22dp"
+                    android:textAlignment="center">
+
+                    <TextView
+                        android:layout_weight="1"
+                        android:text="Activity"
+                        android:textAlignment="center"
+                        android:textSize="20sp"
+                        android:textStyle="bold|italic" />
+
+                    <TextView
+                        android:layout_weight="1"
+                        android:text="Probability"
+                        android:textAlignment="center"
+                        android:textSize="20sp"
+                        android:textStyle="bold|italic" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:padding="22dp">
+
+                    <TextView
+                        android:layout_weight="1"
+                        android:text="WALKING"
+                        android:textAlignment="center"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/walking_prob"
+                        android:layout_weight="1"
+                        android:textAlignment="center"
+                        android:textSize="18sp" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:padding="22dp">
+
+                    <TextView
+                        android:layout_weight="1"
+                        android:text="UPSTAIRS"
+                        android:textAlignment="center"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/walking_upstairs_prob"
+                        android:layout_weight="1"
+                        android:textAlignment="center"
+                        android:textSize="18sp" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:padding="22dp">
+
+                    <TextView
+                        android:layout_weight="1"
+                        android:text="DOWNSTAIRS"
+                        android:textAlignment="center"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/walking_downstairs_prob"
+                        android:layout_weight="1"
+                        android:textAlignment="center"
+                        android:textSize="18sp" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:padding="22dp">
+
+                    <TextView
+                        android:layout_weight="1"
+                        android:text="SITTING"
+                        android:textAlignment="center"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/sitting_prob"
+                        android:layout_weight="1"
+                        android:textAlignment="center"
+                        android:textSize="18sp" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:padding="22dp">
+
+                    <TextView
+                        android:layout_weight="1"
+                        android:text="STANDING"
+                        android:textAlignment="center"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/standing_prob"
+                        android:layout_weight="1"
+                        android:textAlignment="center"
+                        android:textSize="18sp" />
+                </TableRow>
+
+                <TableRow
+                    android:layout_width="fill_parent"
+                    android:layout_height="fill_parent"
+                    android:padding="22dp">
+
+                    <TextView
+                        android:layout_weight="1"
+                        android:text="LAYING"
+                        android:textAlignment="center"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/laying_prob"
+                        android:layout_weight="1"
+                        android:textAlignment="center"
+                        android:textSize="18sp" />
+                </TableRow>
+            </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/gyroscope_chart"
+                android:id="@+id/chart"
                 android:layout_width="match_parent"
                 android:layout_height="600dp"
                 android:orientation="vertical" />
 
-            <TextView
-                android:id="@+id/accelerometer_txt"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="23sp" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
